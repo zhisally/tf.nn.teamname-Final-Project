@@ -3,6 +3,8 @@ import numpy as np
 
 PAD_TOKEN = "*PAD*"
 UNK_TOKEN = "*UNK*"
+MAX_COMMENT_LENGTH = 200
+MIN_WORD_APPEARANCES = 5
 
 def read_data(train_file, test_inputs_file, test_labels_file):
     # labels stored as toxic, severe_toxic, obscene, threat, insult, identity_hate
@@ -55,22 +57,22 @@ def read_data(train_file, test_inputs_file, test_labels_file):
     test_labels = np.array(test_labels)
     return train_inputs, train_labels, test_inputs, test_labels, word_counts
 
-def build_vocab(word_counts, min_appearances=5):
+def build_vocab(word_counts):
     current_id = 0
     vocab_dict = {}
     for word, count in word_counts.items():
-        if count > min_appearances:
+        if count > MIN_WORD_APPEARANCES:
             vocab_dict[word] = current_id
             current_id += 1
     vocab_dict[UNK_TOKEN] = current_id
     vocab_dict[PAD_TOKEN] = current_id + 1
     return vocab_dict, current_id + 1
 
-def pad_corpus(comments, max_comment_length=200):
+def pad_corpus(comments):
     padded_comments = []
     for line in comments:
-        padded_comment = line.split()[:max_comment_length]
-        padded_comment = padded_comment + [PAD_TOKEN] * (max_comment_length - len(padded_comment))
+        padded_comment = line.split()[:MAX_COMMENT_LENGTH]
+        padded_comment = padded_comment + [PAD_TOKEN] * (MAX_COMMENT_LENGTH - len(padded_comment))
         padded_comments.append(padded_comment)
 
     return padded_comments
