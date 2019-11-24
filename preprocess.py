@@ -7,6 +7,20 @@ MAX_COMMENT_LENGTH = 200
 MIN_WORD_APPEARANCES = 5
 
 def read_data(train_file, test_inputs_file, test_labels_file):
+    """
+    Load text data from csv files
+
+    :param train_file:  string, name of train file
+    :param test_input_file:  string, name of test input file
+    :param test_labels_file:  string, name of test labels file
+    :return: Tuple of train containing:
+    list of training comments,
+    2-d numpy array of training labels,
+    list of testing comments,
+    2-d numpy array of testing labels,
+    Dict containg word->word count
+    """
+    
     # labels stored as toxic, severe_toxic, obscene, threat, insult, identity_hate
     train_inputs = []
     train_labels = []
@@ -58,6 +72,12 @@ def read_data(train_file, test_inputs_file, test_labels_file):
     return train_inputs, train_labels, test_inputs, test_labels, word_counts
 
 def build_vocab(word_counts):
+    """
+    Builds vocab a word count dictionary. Removes rare words and adds UNK and PAD tokens.
+
+    :param word_counts:  Dict containg word->word count
+    :return: tuple of (dictionary: word --> unique index, pad_token_idx)
+    """
     current_id = 0
     vocab_dict = {}
     for word, count in word_counts.items():
@@ -69,6 +89,12 @@ def build_vocab(word_counts):
     return vocab_dict, current_id + 1
 
 def pad_corpus(comments):
+    """
+    Pads comments to all be specified length.
+
+    :param comments: list of comments
+    :return: list of comments with padding added
+    """
     padded_comments = []
     for line in comments:
         padded_comment = line.split()[:MAX_COMMENT_LENGTH]
@@ -79,17 +105,29 @@ def pad_corpus(comments):
 
 def convert_to_id(vocab, sentences):
     """
-    DO NOT CHANGE
-
-  Convert sentences to indexed 
+    Convert sentences to indices
 
     :param vocab:  dictionary, word --> unique index
     :param sentences:  list of lists of words, each representing padded sentence
     :return: numpy array of integers, with each row representing the word indeces in the corresponding sentences
-  """
+    """
     return np.stack([[vocab[word] if word in vocab else vocab[UNK_TOKEN] for word in sentence] for sentence in sentences])
 
 def get_data(train_file, test_inputs_file, test_labels_file):
+    """
+    Preprocesses data and returns it in formatting ready to be fed into model.
+
+    :param train_file: Path to the training file.
+    :param test_inputs_file: Path to the testing input file.
+    :param test_labels_file: Path to the testing label file.
+    
+    :return: Tuple of train containing:
+    2-d numpy array with training comments in vectorized/id form [num_comments x MAX_COMMENT_LENGTH]
+    2-d numpy array with training labels form [num_comments x 6]
+    2-d numpy array with testing comments in vectorized/id form [num_comments x MAX_COMMENT_LENGTH]
+    2-d numpy array with testing labels form [num_comments x 6]
+    vocab (Dict containg word->index mapping)
+    """
     train_inputs, train_labels, test_inputs, test_labels, word_counts = read_data(train_file, test_inputs_file, test_labels_file)
     vocab_dict, pad_index = build_vocab(word_counts)
     
