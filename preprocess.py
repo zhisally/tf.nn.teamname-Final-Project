@@ -7,6 +7,12 @@ UNK_TOKEN = "*UNK*"
 MAX_COMMENT_LENGTH = 200
 MIN_WORD_APPEARANCES = 5
 
+# TODO if model accuracy low:
+# 1) Everything to lower (add capitalization tags if necessary)
+# 2) Remove punctuation or separate
+# 3) Remove stop words
+# 4) Stemming and lemmazation
+
 def read_data(train_file, test_inputs_file, test_labels_file):
     """
     Load text data from csv files
@@ -15,14 +21,9 @@ def read_data(train_file, test_inputs_file, test_labels_file):
     :param test_input_file:  string, name of test input file
     :param test_labels_file:  string, name of test labels file
     :return: Tuple of train containing:
-    list of training comments,
-    2-d numpy array of training labels,
-    list of testing comments,
-    2-d numpy array of testing labels,
-    Dict containg word->word count
+    pandas dataframe containing all the training data (columns: id, comment_text, toxic, severe_toxic, obscene, threat, insult, identity_hate)
+    pandas dataframe containing all the testing data (columns: id, comment_text, toxic, severe_toxic, obscene, threat, insult, identity_hate)
     """
-    
-    # labels stored as toxic, severe_toxic, obscene, threat, insult, identity_hate
     train = pd.read_csv(train_file)
     test_inputs = pd.read_csv(test_inputs_file)
     test_labels = pd.read_csv(test_labels_file)
@@ -34,8 +35,9 @@ def build_vocab(train, test):
     """
     Builds vocab a word count dictionary. Removes rare words and adds UNK and PAD tokens.
 
-    :param word_counts:  Dict containg word->word count
-    :return: tuple of (dictionary: word --> unique index, pad_token_idx)
+    :param train:  pandas dataframe of training data
+    :param test: pandas dataframe of testing data
+    :return: dictionary: word --> unique index
     """
     word_counts = {}
     for comment in train['comment_text']:
@@ -64,7 +66,7 @@ def pad_corpus(comments):
     """
     Pads comments to all be specified length.
 
-    :param comments: list of comments
+    :param comments: iterable of comments
     :return: list of comments with padding added
     """
     padded_comments = []
