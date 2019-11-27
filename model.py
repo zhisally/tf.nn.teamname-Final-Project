@@ -1,178 +1,124 @@
 import numpy as np
 import tensorflow as tf
+from preprocess import get_data
+from sklearn.metrics import roc_auc_score
 
 class Model(tf.keras.Model):
-    def __init__(self, vocab_size):
+    def __init__(self, vocab_size, comment_length):
 
         """
-        The Model class predicts the next words in a sequence.
-        Feel free to initialize any variables that you find necessary in the constructor.
+        The Model class predicts the tags of online comments as either non-toxic or
+        one or more toxic labels.
 
         :param vocab_size: The number of unique words in the data
+        :param comment_length: The number of words per comment
         """
 
         super(Model, self).__init__()
 
         # initialize hyperparameters
         self.vocab_size = vocab_size
-        self.window_size = 20
+        self.comment_length = comment_length
         self.embedding_size = 50
         self.batch_size = 100
         self.optimizer = tf.keras.optimizers.Adam(learning_rate = 0.01)
         self.rnn_size = 128
 
         #intitalizes trainable layers
-        self.E = tf.Variable(tf.random.truncated_normal([self.vocab_size, self.embedding_size],stddev = 0.1,dtype = tf.float32))
-        self.LSTM = tf.keras.layers.LSTM(self.rnn_size,return_sequences = True, return_state = True)
-        self.dense_1 = tf.keras.layers.Dense(self.vocab_size, activation='softmax')
+        self.E = tf.keras.layers.Embedding(self.vocab_size, self.embedding_size, input_length=self.comment_length)
+        self.LSTM = tf.keras.layers.LSTM(self.rnn_size,return_sequences=True, return_state=True)
+        self.dense1 = tf.keras.layers.Dense(6, activation='sigmoid')
 
-    def call(self, inputs, initial_state):
+    def call(self, inputs):
         """
-        - You must use an embedding layer as the first layer of your network (i.e. tf.nn.embedding_lookup)
-        - You must use an LSTM or GRU as the next layer.
+        Forward pass through network to make predictions (each prediction is a
+        vector of dimension 6, where each number represents the binary classification
+        of the comment for each of the 6 categories).
 
-        :param inputs: word ids of shape (batch_size, window_size)
-        :param initial_state: 2-d array of shape (batch_size, rnn_size) as a tensor
-        :return: the batch element probabilities as a tensor, the final_state(s) of the rnn
-
-        -Note 1: If you use an LSTM, the final_state will be the last two outputs of calling the rnn.
-        If you use a GRU, it will just be the second output.
-
-        -Note 2: You only need to use the initial state during generation. During training and testing it can be None.
+        :param inputs: word ids of shape (batch_size, comment_length)
+        :return: the batch labels
         """
         #embedding layer lookup
-        embeddings = tf.nn.embedding_lookup(self.E,inputs)
-        #if initial state is none, ignore it
-        if type(initial_state) == type(None):
-            lstm, last_output, cell_state = self.LSTM(embeddings)
-        else:
-            lstm, last_output, cell_state = self.LSTM(embeddings,initial_state = initial_state)
-        dense1 = self.dense_1(lstm)
-        return dense1, (last_output, cell_state)
+        inputs = tf.convert_to_tensor(inputs)
+        embeddings = self.E(inputs)
+        lstm_output, last_output, cell_state = self.LSTM(embeddings)
+        dense1_output = self.dense1(cell_state)
+        return dense1_output
 
     def loss(self, logits, labels):
         """
-        Calculates average cross entropy sequence to sequence loss of the prediction
+        Calculates average cross entropy binary loss of the predictions.
 
-        :param logits: a matrix of shape (batch_size, window_size, vocab_size) as a tensor
-        :param labels: matrix of shape (batch_size, window_size) containing the labels
+        :param logits: a matrix of shape (batch_size, 6) as a tensor
+        :param labels: matrix of shape (batch_size, 6) containing the labels
         :return: the loss of the model as a tensor of size 1
         """
-        #calculates mean loss
-        return tf.reduce_mean(tf.keras.losses.sparse_categorical_crossentropy(labels,logits))
+        return tf.reduce_mean(tf.keras.losses.binary_crossentropy(labels,logits))
+    
+    def accuracy(self, logits, labels):
+        preds = tf.map_fn(tf.math.round, logits)
+        diff = tf.math.abs(preds - labels)
+        return 1 - tf.reduce_mean(diff, axis=0)
 
 def train(model, train_inputs, train_labels):
     """
     Runs through one epoch - all training examples.
 
     :param model: the initilized model to use for forward and backward pass
-    :param train_inputs: train inputs (all inputs for training) of shape (num_inputs,)
-    :param train_labels: train labels (all labels for training) of shape (num_labels,)
+    :param train_inputs: train inputs (all inputs for training) of shape (num_inputs,comment_length)
+    :param train_labels: train labels (all labels for training) of shape (num_labels,comment_length)
     :return: None
     """
-    #batches and trains data
-    for i in range(0, len(train_inputs), model.batch_size*model.window_size):
-        batch_inputs = np.zeros((model.batch_size*model.window_size,))
-        batch_labels = np.zeros((model.batch_size*model.window_size,))
-
-        #if not enough examples left, ignore and stop training
-        if(len(train_inputs)-i<model.batch_size*model.window_size):
+    m = train_inputs.shape[0]
+    for i in np.arange(0, m, model.batch_size):
+        batch_inputs = train_inputs[i:i+model.batch_size]
+        batch_labels = train_labels[i:i+model.batch_size]
+        if(len(batch_labels) < model.batch_size):
             break
-        batch_inputs = train_inputs[i:i+model.batch_size*model.window_size]
-        batch_labels = train_labels[i:i+model.batch_size*model.window_size]
-
-        b_inputs = np.array(batch_inputs).reshape((model.batch_size,model.window_size))
-        b_labels = np.array(batch_labels).reshape((model.batch_size,model.window_size))
-
-        #calculate gradient
+        
         with tf.GradientTape() as tape:
-            probs, _ = model.call(b_inputs, None)
-            loss = model.loss(probs, b_labels)
-            grads = tape.gradient(loss, model.trainable_variables)
-        model.optimizer.apply_gradients(zip(grads, model.trainable_variables))
-    return
+            preds = model(batch_inputs)
+            loss = model.loss(preds, batch_labels)
+            
+        gradients = tape.gradient(loss, model.trainable_variables)
+        model.optimizer.apply_gradients(zip(gradients, model.trainable_variables))
+        
+        if(i % model.batch_size * 200 == 0):
+            print(f"Loss after {i / model.batch_size} batches ({np.round(i / m * 100, 2)}%): {loss}")
+
 
 def test(model, test_inputs, test_labels):
     """
     Runs through one epoch - all testing examples
 
     :param model: the trained model to use for prediction
-    :param test_inputs: train inputs (all inputs for testing) of shape (num_inputs,)
-    :param test_labels: train labels (all labels for testing) of shape (num_labels,)
-    :returns: perplexity of the test set
-
-    Note: perplexity is exp(total_loss/number of predictions)
-
+    :param test_inputs: train inputs (all inputs for testing) of shape (num_inputs,comment_length)
+    :param test_labels: train labels (all labels for testing) of shape (num_labels,comment_length)
+    :returns: touple of accuracy for each binary classification (array of dimension 6), ROC score
     """
-    perplexity = 0
-    num_predictions = 0
-
-    #batches data and tests model
-    for i in range(0, len(test_inputs), model.batch_size*model.window_size):
-
-        batch_inputs = np.zeros((model.batch_size*model.window_size,))
-        batch_labels = np.zeros((model.batch_size*model.window_size,))
-        #if there isn't enough inputs left in data set, ignore the ones left and stop testing
-        if(len(test_inputs)-i<model.batch_size*model.window_size):
+    m = test_inputs.shape[0]
+    total_acc = 0
+    total_roc_auc_score = 0
+    for i in np.arange(0, m, model.batch_size):
+        batch_inputs = test_inputs[i:i+model.batch_size]
+        batch_labels = test_labels[i:i+model.batch_size]
+        if(len(batch_labels) < model.batch_size):
             break
-        num_predictions+=1
-        batch_inputs = test_inputs[i:i+model.batch_size*model.window_size]
-        batch_labels = test_labels[i:i+model.batch_size*model.window_size]
-
-        b_inputs = np.array(batch_inputs).reshape((model.batch_size,model.window_size))
-        b_labels = np.array(batch_labels).reshape((model.batch_size,model.window_size))
-
-        #calculate perplexity
-        probs, _ = model.call(b_inputs, None)
-        perplexity += model.loss(probs, b_labels)
-    return tf.exp(perplexity/num_predictions)
-
-def generate_sentence(word1, length, vocab,model):
-    """
-    Takes a model, vocab, selects from the most likely next word from the model's distribution
-
-    This is only for your own exploration. What do the sequences your RNN generates look like?
-
-    :param model: trained RNN model
-    :param vocab: dictionary, word to id mapping
-    :return: None
-    """
-
-    reverse_vocab = {idx:word for word, idx in vocab.items()}
-    previous_state = None
-
-    first_string = word1
-    first_word_index = vocab[word1]
-    next_input = [[first_word_index]]
-    text = [first_string]
-
-    for i in range(length):
-        logits,previous_state = model.call(next_input,previous_state)
-        out_index = np.argmax(np.array(logits[0][0]))
-
-        text.append(reverse_vocab[out_index])
-        next_input = [[out_index]]
-
-    print(" ".join(text))
-
-
+        
+        preds = model(batch_inputs)
+        total_acc += model.accuracy(preds, batch_labels)
+        total_roc_auc_score += roc_auc_score(batch_labels, preds)
+    
+    num_batches = int(m / model.batch_size)
+    accuracy = total_acc / num_batches
+    roc_score = total_roc_auc_score / num_batches
+    return accuracy, roc_score
 
 def main():
-    #gets data and initializes model
-    train_ids, test_ids, vocab_dict = get_data('data/train.txt','data/test.txt')
-    model = Model(len(vocab_dict))
-
-    # Set-up the training step
-    train_inputs = train_ids[:-1]
-    train_labels = train_ids[1:]
+    train_inputs, train_labels, test_inputs, test_labels, vocab_dict = get_data('data_set/train.csv','data_set/test.csv','data_set/test_labels.csv')
+    model = Model(len(vocab_dict), train_inputs.shape[1])
     train(model, train_inputs, train_labels)
-    # Set up the testing steps
-    test_inputs = test_ids[:-1]
-    test_labels = test_ids[1:]
-    perplexity = test(model, test_inputs, test_labels)
-    # print out perplexity
-    print(perplexity)
-    # generates sentence
-    generate_sentence("It", 10, vocab_dict, model)
+    
+
 if __name__ == '__main__':
     main()
