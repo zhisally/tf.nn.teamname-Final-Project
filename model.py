@@ -54,7 +54,7 @@ class Model(tf.keras.Model):
         :return: the loss of the model as a tensor of size 1
         """
         return tf.reduce_mean(tf.keras.losses.binary_crossentropy(labels,logits))
-    
+
     def accuracy(self, logits, labels):
         preds = tf.map_fn(tf.math.round, logits)
         diff = tf.math.abs(preds - labels)
@@ -75,14 +75,14 @@ def train(model, train_inputs, train_labels):
         batch_labels = train_labels[i:i+model.batch_size]
         if(len(batch_labels) < model.batch_size):
             break
-        
+
         with tf.GradientTape() as tape:
             preds = model(batch_inputs)
             loss = model.loss(preds, batch_labels)
-            
+
         gradients = tape.gradient(loss, model.trainable_variables)
         model.optimizer.apply_gradients(zip(gradients, model.trainable_variables))
-        
+
         if(i % model.batch_size * 200 == 0):
             print(f"Loss after {i / model.batch_size} batches ({np.round(i / m * 100, 2)}%): {loss}")
 
@@ -104,11 +104,11 @@ def test(model, test_inputs, test_labels):
         batch_labels = test_labels[i:i+model.batch_size]
         if(len(batch_labels) < model.batch_size):
             break
-        
+
         preds = model(batch_inputs)
         total_acc += model.accuracy(preds, batch_labels)
         total_roc_auc_score += roc_auc_score(batch_labels, preds)
-    
+
     num_batches = int(m / model.batch_size)
     accuracy = total_acc / num_batches
     roc_score = total_roc_auc_score / num_batches
@@ -118,7 +118,10 @@ def main():
     train_inputs, train_labels, test_inputs, test_labels, vocab_dict = get_data('data_set/train.csv','data_set/test.csv','data_set/test_labels.csv')
     model = Model(len(vocab_dict), train_inputs.shape[1])
     train(model, train_inputs, train_labels)
-    
+    accuracy, roc_score = test(model, test_inputs, test_labels)
+    print("Accuracy: ", accuracy)
+    print("roc_score: ", roc_score)
+
 
 if __name__ == '__main__':
     main()

@@ -25,6 +25,13 @@ def read_data(train_file, test_inputs_file, test_labels_file):
     pandas dataframe containing all the testing data (columns: id, comment_text, toxic, severe_toxic, obscene, threat, insult, identity_hate)
     """
     train = pd.read_csv(train_file)
+    rows_to_keep = np.ceil(0.4 * len(train.index))
+    non_toxic = train[(train[['toxic', 'severe_toxic', 'obscene', 'threat', 'insult', 'identity_hate']] == 0).all(axis = 1)]
+    toxic = train[(train[['toxic', 'severe_toxic', 'obscene', 'threat', 'insult', 'identity_hate']] != 0).any(axis = 1)]
+    non_toxic = non_toxic.head(int(rows_to_keep))
+    train = pd.concat([non_toxic, toxic], axis = 0)
+    train = train.sample(frac=1).reset_index(drop=True)
+
     test_inputs = pd.read_csv(test_inputs_file)
     test_labels = pd.read_csv(test_labels_file)
     test = pd.merge(test_inputs, test_labels, on="id")
@@ -94,7 +101,7 @@ def get_data(train_file, test_inputs_file, test_labels_file):
     :param train_file: Path to the training file.
     :param test_inputs_file: Path to the testing input file.
     :param test_labels_file: Path to the testing label file.
-    
+
     :return: Tuple of train containing:
     2-d numpy array with training comments in vectorized/id form [num_comments x MAX_COMMENT_LENGTH]
     2-d numpy array with training labels form [num_comments x 6]
@@ -104,14 +111,14 @@ def get_data(train_file, test_inputs_file, test_labels_file):
     """
     train, test = read_data(train_file, test_inputs_file, test_labels_file)
     vocab_dict = build_vocab(train, test)
-    
+
     train_inputs = pad_corpus(train['comment_text'])
     test_inputs = pad_corpus(test['comment_text'])
-    
+
     train_inputs = convert_to_id(vocab_dict, train_inputs)
     test_inputs = convert_to_id(vocab_dict, test_inputs)
-    
+
     train_labels = np.array(train[['toxic', 'severe_toxic', 'obscene', 'threat', 'insult', 'identity_hate']])
     test_labels = np.array(test[['toxic', 'severe_toxic', 'obscene', 'threat', 'insult', 'identity_hate']])
-    
+
     return train_inputs, train_labels, test_inputs, test_labels, vocab_dict
