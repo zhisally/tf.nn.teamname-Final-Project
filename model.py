@@ -98,8 +98,13 @@ def test(model, test_inputs, test_labels):
     """
     m = test_inputs.shape[0]
     total_acc = 0
-    total_roc_auc_score = 0
+    total_labels = np.empty((0,6))
+    total_preds = np.empty((0,6))
+
+    num_batches = int(m / model.batch_size)
+
     for i in np.arange(0, m, model.batch_size):
+        print("Testing: ", i / model.batch_size, " out of ", num_batches, " batches ")
         batch_inputs = test_inputs[i:i+model.batch_size]
         batch_labels = test_labels[i:i+model.batch_size]
         if(len(batch_labels) < model.batch_size):
@@ -107,12 +112,25 @@ def test(model, test_inputs, test_labels):
 
         preds = model(batch_inputs)
         total_acc += model.accuracy(preds, batch_labels)
-        total_roc_auc_score += roc_auc_score(batch_labels, preds)
 
-    num_batches = int(m / model.batch_size)
+        total_labels = np.append(total_labels, batch_labels, axis=0)
+        total_preds = np.append(total_preds, preds, axis=0)
+
+    roc_auc_acc = 0
+    for i in range(6):
+        class_labels = total_labels[:,i]
+        class_preds = total_preds[:,i]
+        if i == 1 or i == 3:
+            class_labels = np.append(class_labels, [1], axis=0)
+            class_preds = np.append(class_preds, [1], axis=0)
+        class_score = roc_auc_score(class_labels, class_preds)
+        print("Label: ", i, " ROC AUC Score: ", class_score)
+        roc_auc_acc += class_score
+
+    roc_auc_acc = float(roc_auc_acc / 6)
+
     accuracy = total_acc / num_batches
-    roc_score = total_roc_auc_score / num_batches
-    return accuracy, roc_score
+    return accuracy, roc_auc_acc
 
 def main():
     train_inputs, train_labels, test_inputs, test_labels, vocab_dict = get_data('data_set/train.csv','data_set/test.csv','data_set/test_labels.csv')
