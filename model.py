@@ -3,6 +3,8 @@ import tensorflow as tf
 from preprocess import get_data
 from sklearn.metrics import roc_auc_score
 
+PRINT_EVERY = 25
+
 class Model(tf.keras.Model):
     def __init__(self, vocab_size, comment_length):
 
@@ -27,6 +29,7 @@ class Model(tf.keras.Model):
         #intitalizes trainable layers
         self.E = tf.keras.layers.Embedding(self.vocab_size, self.embedding_size, input_length=self.comment_length)
         self.GRU = tf.keras.layers.GRU(units = self.rnn_size,return_sequences=True, return_state = True)
+        self.pooling = tf.keras.layers.GlobalMaxPool1D()
         self.dense1 = tf.keras.layers.Dense(6, activation='sigmoid')
 
     def call(self, inputs):
@@ -42,7 +45,8 @@ class Model(tf.keras.Model):
         inputs = tf.convert_to_tensor(inputs)
         embeddings = self.E(inputs)
         output, cell_state = self.GRU(embeddings, None)
-        dense1_output = self.dense1(cell_state)
+        pooled = self.pooling(output)
+        dense1_output = self.dense1(pooled)
         return dense1_output
 
     def loss(self, logits, labels):
@@ -83,8 +87,8 @@ def train(model, train_inputs, train_labels):
         gradients = tape.gradient(loss, model.trainable_variables)
         model.optimizer.apply_gradients(zip(gradients, model.trainable_variables))
 
-        if(i % model.batch_size * 200 == 0):
-            print(f"Loss after {i / model.batch_size} batches ({np.round(i / m * 100, 2)}%): {loss}")
+        if(i % (model.batch_size * PRINT_EVERY) == 0):
+            print(f"Loss after {int(i / model.batch_size)} batches ({np.round(i / m * 100, 2)}%): {loss}")
 
 
 def test(model, test_inputs, test_labels):
@@ -104,7 +108,8 @@ def test(model, test_inputs, test_labels):
     num_batches = int(m / model.batch_size)
 
     for i in np.arange(0, m, model.batch_size):
-        print("Testing: ", i / model.batch_size, " out of ", num_batches, " batches ")
+        if(i % (model.batch_size * PRINT_EVERY) == 0):
+            print(f"Testing: {int(i / model.batch_size)} out of {num_batches} batches")
         batch_inputs = test_inputs[i:i+model.batch_size]
         batch_labels = test_labels[i:i+model.batch_size]
         if(len(batch_labels) < model.batch_size):
@@ -124,7 +129,7 @@ def test(model, test_inputs, test_labels):
             class_labels = np.append(class_labels, [1], axis=0)
             class_preds = np.append(class_preds, [1], axis=0)
         class_score = roc_auc_score(class_labels, class_preds)
-        print("Label: ", i, " ROC AUC Score: ", class_score)
+        print(f"Label: {i} ROC AUC Score: {class_score}")
         roc_auc_acc += class_score
 
     roc_auc_acc = float(roc_auc_acc / 6)
