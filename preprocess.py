@@ -1,6 +1,8 @@
 import csv
 import numpy as np
 import pandas as pd
+import re
+import string
 
 PAD_TOKEN = "*PAD*"
 UNK_TOKEN = "*UNK*"
@@ -48,22 +50,22 @@ def build_vocab(train, test):
     """
     word_counts = {}
     for comment in train['comment_text']:
-        for word in comment.split():
-            if word not in word_counts:
-                word_counts[word] = 1
+        for token in comment:
+            if token not in word_counts:
+                word_counts[token] = 1
             else:
-                word_counts[word] += 1
+                word_counts[token] += 1
     for comment in test['comment_text']:
-        for word in comment.split():
-            if word not in word_counts:
-                word_counts[word] = 1
+        for token in comment:
+            if token not in word_counts:
+                word_counts[token] = 1
             else:
-                word_counts[word] += 1
+                word_counts[token] += 1
     current_id = 0
     vocab_dict = {}
-    for word, count in word_counts.items():
+    for token, count in word_counts.items():
         if count > MIN_WORD_APPEARANCES:
-            vocab_dict[word] = current_id
+            vocab_dict[token] = current_id
             current_id += 1
     vocab_dict[UNK_TOKEN] = current_id
     vocab_dict[PAD_TOKEN] = current_id + 1
@@ -78,7 +80,7 @@ def pad_corpus(comments):
     """
     padded_comments = []
     for line in comments:
-        padded_comment = line.split()[:MAX_COMMENT_LENGTH]
+        padded_comment = line[:MAX_COMMENT_LENGTH]
         padded_comment = padded_comment + [PAD_TOKEN] * (MAX_COMMENT_LENGTH - len(padded_comment))
         padded_comments.append(padded_comment)
 
@@ -93,6 +95,9 @@ def convert_to_id(vocab, sentences):
     :return: numpy array of integers, with each row representing the word indeces in the corresponding sentences
     """
     return np.stack([[vocab[word] if word in vocab else vocab[UNK_TOKEN] for word in sentence] for sentence in sentences])
+
+def parse_strings(comments):
+    return comments.apply(lambda x: re.findall(f"[\w']+|[{string.punctuation}]", x.lower()))
 
 def get_data(train_file, test_inputs_file, test_labels_file):
     """
@@ -110,6 +115,10 @@ def get_data(train_file, test_inputs_file, test_labels_file):
     vocab (Dict containg word->index mapping)
     """
     train, test = read_data(train_file, test_inputs_file, test_labels_file)
+    
+    train['comment_text'] = parse_strings(train['comment_text'])
+    test['comment_text'] = parse_strings(test['comment_text'])
+    
     vocab_dict = build_vocab(train, test)
 
     train_inputs = pad_corpus(train['comment_text'])
