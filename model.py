@@ -21,12 +21,12 @@ class Model(tf.keras.Model):
         self.comment_length = comment_length
         self.embedding_size = 50
         self.batch_size = 100
-        self.optimizer = tf.keras.optimizers.Adam(learning_rate = 0.01)
+        self.optimizer = tf.keras.optimizers.Adam(learning_rate = 0.001)
         self.rnn_size = 128
 
         #intitalizes trainable layers
         self.E = tf.keras.layers.Embedding(self.vocab_size, self.embedding_size, input_length=self.comment_length)
-        self.LSTM = tf.keras.layers.LSTM(self.rnn_size,return_sequences=True, return_state=True)
+        self.GRU = tf.keras.layers.GRU(units = self.rnn_size,return_sequences=True, return_state = True)
         self.dense1 = tf.keras.layers.Dense(6, activation='sigmoid')
 
     def call(self, inputs):
@@ -41,7 +41,7 @@ class Model(tf.keras.Model):
         #embedding layer lookup
         inputs = tf.convert_to_tensor(inputs)
         embeddings = self.E(inputs)
-        lstm_output, last_output, cell_state = self.LSTM(embeddings)
+        output, cell_state = self.GRU(embeddings, None)
         dense1_output = self.dense1(cell_state)
         return dense1_output
 
