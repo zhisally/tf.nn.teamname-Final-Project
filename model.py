@@ -48,15 +48,15 @@ class Model(tf.keras.Model):
         """
         #embedding layer lookup
         inputs = tf.convert_to_tensor(inputs)
-        print (inputs.shape)
+        #print (inputs.shape)
         embeddings = self.E(inputs)
-        print (embeddings.shape)
+        #print (embeddings.shape)
         output, cell_state = self.GRU(embeddings, None)
-        print (output.shape)
+        #print (output.shape)
         pooled = self.pooling(output)
-        print (pooled.shape)
+        #print (pooled.shape)
         dense1_output = self.dense1(pooled)
-        print (dense1_output.shape)
+        #print (dense1_output.shape)
         return dense1_output
 
     def loss(self, logits, labels):
@@ -148,7 +148,7 @@ def test(model, test_inputs, test_labels):
     return accuracy, roc_auc_acc
 
 def visualize_embeddings(model, vocab_dict):
-        # reduce dimension to 2
+    # reduce dimension to 2
     pca = PCA(n_components=2) # PCA is better than TSNE for large dimension like 30 :)
     vectors = pca.fit_transform(model.E.get_weights()[0])
 
@@ -159,13 +159,15 @@ def visualize_embeddings(model, vocab_dict):
     # plot the 2D normalized vectors
     x_vec = []
     y_vec = []
+    words_of_interest = ["fuck", "fucker", "lesbian", "shit", "crap", "kill", "hate", "cute", "hell", "mother", "father", "daughter", "son", "love", "awesome", "great", "gay"]
     for x,y in norm_vectors:
+      #if x in words_of_interest:
       x_vec.append(x)
       y_vec.append(y)
 
-    f, axs = plt.subplots(1,1,figsize=(18,16))
-    plt.scatter(x_vec, y_vec, c='b')
-    words_of_interest = ["fuck", "shit", "crap", "kill", "hate", "cute", "hell", "love", "gay"]
+    f, axs = plt.subplots(1,1, figsize = (18,16))
+    plt.scatter(x_vec, y_vec, c='white')
+    #words_of_interest = ["fuck", "fucker", "lesbian", "shit", "crap", "kill", "hate", "cute", "hell", "mother", "father", "daughter", "son", "love", "awesome", "great", "gay"]
     for word in words_of_interest:
         plt.annotate(word, (norm_vectors[vocab_dict[word]][0], norm_vectors[vocab_dict[word]][1]))
     plt.show()
