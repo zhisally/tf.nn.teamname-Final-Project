@@ -137,6 +137,29 @@ def test(model, test_inputs, test_labels):
     accuracy = total_acc / num_batches
     return accuracy, roc_auc_acc
 
+def visualize_embeddings(model, vocab_dict):
+        # reduce dimension to 2
+    pca = PCA(n_components=2) # PCA is better than TSNE for large dimension like 30 :)
+    vectors = pca.fit_transform(model.E.get_weights()[0])
+
+    # normalize the results so that we can view them more comfortably in matplotlib
+    normalizer = preprocessing.Normalizer()
+    norm_vectors = normalizer.fit_transform(vectors, 'l2')
+
+    # plot the 2D normalized vectors
+    x_vec = []
+    y_vec = []
+    for x,y in norm_vectors:
+      x_vec.append(x)
+      y_vec.append(y)
+
+    f, axs = plt.subplots(1,1,figsize=(18,16))
+    plt.scatter(x_vec, y_vec, c='b')
+    words_of_interest = ["fuck", "shit", "crap", "kill", "hate", "cute", "hell", "love", "gay"]
+    for word in words_of_interest:
+        plt.annotate(word, (norm_vectors[vocab_dict[word]][0], norm_vectors[vocab_dict[word]][1]))
+    plt.show()
+
 def main():
     train_inputs, train_labels, test_inputs, test_labels, vocab_dict = get_data('data_set/train.csv','data_set/test.csv','data_set/test_labels.csv')
     model = Model(len(vocab_dict), train_inputs.shape[1])
@@ -144,7 +167,7 @@ def main():
     accuracy, roc_score = test(model, test_inputs, test_labels)
     print("Accuracy: ", accuracy)
     print("roc_score: ", roc_score)
-
+    visualize_embeddings(model, vocab_dict)
 
 if __name__ == '__main__':
     main()
