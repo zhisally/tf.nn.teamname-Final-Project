@@ -3,6 +3,11 @@ import tensorflow as tf
 from preprocess import get_data
 from sklearn.metrics import roc_auc_score
 
+from sklearn.manifold import TSNE
+from sklearn import preprocessing
+import matplotlib.pyplot as plt
+from sklearn.decomposition import PCA
+
 PRINT_EVERY = 25
 
 class Model(tf.keras.Model):
@@ -43,10 +48,15 @@ class Model(tf.keras.Model):
         """
         #embedding layer lookup
         inputs = tf.convert_to_tensor(inputs)
+        print (inputs.shape)
         embeddings = self.E(inputs)
+        print (embeddings.shape)
         output, cell_state = self.GRU(embeddings, None)
+        print (output.shape)
         pooled = self.pooling(output)
+        print (pooled.shape)
         dense1_output = self.dense1(pooled)
+        print (dense1_output.shape)
         return dense1_output
 
     def loss(self, logits, labels):
