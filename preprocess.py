@@ -9,11 +9,6 @@ UNK_TOKEN = "*UNK*"
 MAX_COMMENT_LENGTH = 200
 MIN_WORD_APPEARANCES = 5
 
-# TODO if model accuracy low:
-# 1) Everything to lower (add capitalization tags if necessary)
-# 2) Remove punctuation or separate
-# 3) Remove stop words
-# 4) Stemming and lemmazation
 
 def read_data(train_file, test_inputs_file, test_labels_file):
     """

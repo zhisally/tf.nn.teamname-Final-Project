@@ -8,7 +8,7 @@ from sklearn import preprocessing
 import matplotlib.pyplot as plt
 from sklearn.decomposition import PCA
 
-PRINT_EVERY = 25
+PRINT_EVERY = 100
 
 class Model(tf.keras.Model):
     def __init__(self, vocab_size, comment_length):
@@ -155,7 +155,7 @@ def test(model, test_inputs, test_labels):
 
 def visualize_embeddings(model, vocab_dict):
     # reduce dimension to 2
-    pca = PCA(n_components=2) # PCA is better than TSNE for large dimension like 30 :)
+    pca = PCA(n_components=2)
     vectors = pca.fit_transform(model.E.get_weights()[0])
 
     # normalize the results so that we can view them more comfortably in matplotlib
