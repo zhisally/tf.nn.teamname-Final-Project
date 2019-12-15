@@ -26,6 +26,8 @@ def read_data(train_file, test_inputs_file, test_labels_file):
     pandas dataframe containing all the training data (columns: id, comment_text, toxic, severe_toxic, obscene, threat, insult, identity_hate)
     pandas dataframe containing all the testing data (columns: id, comment_text, toxic, severe_toxic, obscene, threat, insult, identity_hate)
     """
+
+    # drops about half of the nontoxic comments from the train set
     train = pd.read_csv(train_file)
     rows_to_keep = np.ceil(0.4 * len(train.index))
     non_toxic = train[(train[['toxic', 'severe_toxic', 'obscene', 'threat', 'insult', 'identity_hate']] == 0).all(axis = 1)]
@@ -34,9 +36,12 @@ def read_data(train_file, test_inputs_file, test_labels_file):
     train = pd.concat([non_toxic, toxic], axis = 0)
     train = train.sample(frac=1).reset_index(drop=True)
 
+    # reads in all test inputs labels
     test_inputs = pd.read_csv(test_inputs_file)
     test_labels = pd.read_csv(test_labels_file)
     test = pd.merge(test_inputs, test_labels, on="id")
+
+    # drops all test comments labeled with a -1
     test = test[(test[['toxic', 'severe_toxic', 'obscene', 'threat', 'insult', 'identity_hate']] != -1).all(axis=1)]
     return train, test
 
@@ -48,6 +53,8 @@ def build_vocab(train, test):
     :param test: pandas dataframe of testing data
     :return: dictionary: word --> unique index
     """
+
+    # create vocab dictionary with words in train and test
     word_counts = {}
     for comment in train['comment_text']:
         for token in comment:
@@ -63,6 +70,8 @@ def build_vocab(train, test):
                 word_counts[token] += 1
     current_id = 0
     vocab_dict = {}
+
+    # unk words that appear less times than MIN_WORD_APPEARANCES
     for token, count in word_counts.items():
         if count > MIN_WORD_APPEARANCES:
             vocab_dict[token] = current_id
@@ -80,6 +89,7 @@ def pad_corpus(comments):
     """
     padded_comments = []
     for line in comments:
+        # pad comments shorter than MAX_COMMENT_LENGTH and truncate comments that are longer
         padded_comment = line[:MAX_COMMENT_LENGTH]
         padded_comment = padded_comment + [PAD_TOKEN] * (MAX_COMMENT_LENGTH - len(padded_comment))
         padded_comments.append(padded_comment)
@@ -97,6 +107,12 @@ def convert_to_id(vocab, sentences):
     return np.stack([[vocab[word] if word in vocab else vocab[UNK_TOKEN] for word in sentence] for sentence in sentences])
 
 def parse_strings(comments):
+    """
+    parse punctuation out of comments and turn all words to lowercase
+
+    :param comments: list of comments
+    :return: list of comments with all words lowercased and without their punctuation
+    """
     return comments.apply(lambda x: re.findall(f"[\w']+|[{string.punctuation}]", x.lower()))
 
 def get_data(train_file, test_inputs_file, test_labels_file):
@@ -115,10 +131,10 @@ def get_data(train_file, test_inputs_file, test_labels_file):
     vocab (Dict containg word->index mapping)
     """
     train, test = read_data(train_file, test_inputs_file, test_labels_file)
-    
+
     train['comment_text'] = parse_strings(train['comment_text'])
     test['comment_text'] = parse_strings(test['comment_text'])
-    
+
     vocab_dict = build_vocab(train, test)
 
     train_inputs = pad_corpus(train['comment_text'])

@@ -46,17 +46,16 @@ class Model(tf.keras.Model):
         :param inputs: word ids of shape (batch_size, comment_length)
         :return: the batch labels
         """
-        #embedding layer lookup
+        # embedding layer lookup
         inputs = tf.convert_to_tensor(inputs)
-        #print (inputs.shape)
         embeddings = self.E(inputs)
-        #print (embeddings.shape)
+
+        # GRU and max pooling layers
         output, cell_state = self.GRU(embeddings, None)
-        #print (output.shape)
         pooled = self.pooling(output)
-        #print (pooled.shape)
+
+        # dense and sigmoid activation layer
         dense1_output = self.dense1(pooled)
-        #print (dense1_output.shape)
         return dense1_output
 
     def loss(self, logits, labels):
@@ -70,6 +69,13 @@ class Model(tf.keras.Model):
         return tf.reduce_mean(tf.keras.losses.binary_crossentropy(labels,logits))
 
     def accuracy(self, logits, labels):
+        """
+        Calculates the average accuracy across a batch of comments
+
+        :param logits: a matrix of shape (batch_size, 6) as a tensor
+        :param labels: a matrix of shape (batch_size, 6) containing the labels
+        :return: the accuracy of the model as a tensor of size 1
+        """
         preds = tf.map_fn(tf.math.round, logits)
         diff = tf.math.abs(preds - labels)
         return 1 - tf.reduce_mean(diff, axis=0)
@@ -159,15 +165,13 @@ def visualize_embeddings(model, vocab_dict):
     # plot the 2D normalized vectors
     x_vec = []
     y_vec = []
-    words_of_interest = ["fuck", "fucker", "lesbian", "shit", "crap", "kill", "hate", "cute", "hell", "mother", "father", "daughter", "son", "love", "awesome", "great", "gay"]
+    words_of_interest = ["fuck", "fucker", "bitch", "lesbian", "shit", "crap", "kill", "hate", "cute", "hell", "mother", "father", "daughter", "son", "love", "awesome", "great", "gay"]
     for x,y in norm_vectors:
-      #if x in words_of_interest:
       x_vec.append(x)
       y_vec.append(y)
 
     f, axs = plt.subplots(1,1, figsize = (18,16))
     plt.scatter(x_vec, y_vec, c='white')
-    #words_of_interest = ["fuck", "fucker", "lesbian", "shit", "crap", "kill", "hate", "cute", "hell", "mother", "father", "daughter", "son", "love", "awesome", "great", "gay"]
     for word in words_of_interest:
         plt.annotate(word, (norm_vectors[vocab_dict[word]][0], norm_vectors[vocab_dict[word]][1]))
     plt.show()
